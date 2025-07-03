@@ -7,20 +7,20 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
 
-st.set\_page\_config(page\_title="🎾 Prédicteur Tennis", layout="wide")
+st.set/_page/_config(page/_title="🎾 Prédicteur Tennis", layout="wide")
 st.title("🎾 Prédicteur de Matchs ATP")
 
-model = joblib.load("tennis\_match\_predictor\_xgb.joblib")
+model = joblib.load("tennis/_match/_predictor/_xgb.joblib")
 
-def log\_prediction(input\_features, prob):
-input\_features\['prediction\_prob'] = prob
-input\_features\['timestamp'] = datetime.now()
-log\_df = pd.DataFrame(\[input\_features])
-log\_df.to\_csv("prediction\_logs.csv", mode="a", index=False, header=not os.path.exists("prediction\_logs.csv"))
+def log/_prediction(input/_features, prob):
+input/_features/['prediction\_prob'] = prob
+input/_features/['timestamp'] = datetime.now()
+log/_df = pd.DataFrame(/[input/_features])
+log/_df.to/_csv("prediction/_logs.csv", mode="a", index=False, header=not os.path.exists("prediction/_logs.csv"))
 
-def predict\_new\_match(input\_features):
-input\_df = pd.DataFrame(\[input\_features])
-prob = model.predict\_proba(input\_df\[\[col for col in input\_df.columns if col not in \['player\_1', 'player\_2', 'match\_date']]])\[0, 1]
+def predict/_new/_match(input/_features):
+input/_df = pd.DataFrame(/[input/_features])
+prob = model.predict/_proba(input/_df/[/[col for col in input/_df.columns if col not in /['player/_1', 'player/_2', 'match\_date']]])\[0, 1]
 log\_prediction(input\_features, prob)
 return prob
 
