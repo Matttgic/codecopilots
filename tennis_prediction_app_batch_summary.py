@@ -10,6 +10,7 @@ from datetime import datetime
 st.set_page_config(page_title="🎾 Prédicteur Tennis", layout="wide")
 st.title("🎾 Prédicteur de Matchs ATP")
 
+# Modèle principal
 model = joblib.load("tennis_match_predictor_xgb.joblib")
 
 def log_prediction(input_features, prob):
@@ -44,8 +45,8 @@ def retrain_model():
 
         model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
         model.fit(X_train, y_train)
-        joblib.dump(model, "tennis_match_predictor_xgb.joblib")
-        st.success("Modèle réentraîné ✅")
+        joblib.dump(model, "tennis_model_custom.joblib")
+        st.success("✅ Nouveau modèle entraîné : tennis_model_custom.joblib")
     else:
         st.error("Fichier train_data.csv manquant.")
 
@@ -62,10 +63,10 @@ def generate_train_example():
         'target': np.random.randint(0, 2, 500)
     })
     df.to_csv("train_data.csv", index=False)
-    st.success("Fichier exemple train_data.csv généré ✅")
+    st.success("✅ Fichier exemple train_data.csv généré")
 
-# Tabs
-tabs = st.tabs(["🔮 Prédiction", "📊 Historique", "📁 Batch CSV", "📈 Comparaison", "🔁 Réentraîner"])
+# UI
+tabs = st.tabs(["🔮 Prédiction", "📊 Historique", "📁 Batch CSV", "📈 Comparaison", "🔁 Réentraînement"])
 
 with tabs[0]:
     st.header("Entrée manuelle")
@@ -112,12 +113,13 @@ with tabs[1]:
 
 with tabs[2]:
     st.header("Batch CSV")
+    st.markdown("📝 Fichier CSV attendu avec colonnes : `rank_diff`, `ace_diff`, `df_diff`, `win_ratio_diff`, `surface_ratio_diff`, `surface`, `tourney_level`, `round`")
     uploaded_file = st.file_uploader("Choisir un fichier CSV", type="csv")
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
         try:
             result_df = predict_batch(df)
-            st.success("Prédictions terminées")
+            st.success("✅ Prédictions générées")
             st.dataframe(result_df[["player_1", "player_2", "match_date", "prediction_prob"]])
         except Exception as e:
             st.error(str(e))
@@ -143,6 +145,12 @@ with tabs[4]:
     with col1:
         if st.button("Réentraîner modèle"):
             retrain_model()
+        if st.button("🗑️ Supprimer train_data.csv"):
+            if os.path.exists("train_data.csv"):
+                os.remove("train_data.csv")
+                st.success("train_data.csv supprimé ✅")
+            else:
+                st.info("Aucun fichier train_data.csv trouvé.")
     with col2:
         if st.button("Créer fichier d'entraînement"):
             generate_train_example()
