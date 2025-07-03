@@ -10,7 +10,6 @@ from datetime import datetime
 st.set_page_config(page_title="🎾 Prédicteur Tennis", layout="wide")
 st.title("🎾 Prédicteur de Matchs ATP")
 
-# Modèle principal
 model = joblib.load("tennis_match_predictor_xgb.joblib")
 
 def log_prediction(input_features, prob):
@@ -33,42 +32,9 @@ def predict_batch(df):
     df.to_csv("prediction_logs.csv", mode="a", index=False, header=not os.path.exists("prediction_logs.csv"))
     return df
 
-def retrain_model():
-    if os.path.exists("train_data.csv"):
-        df = pd.read_csv("train_data.csv")
-        from xgboost import XGBClassifier
-        from sklearn.model_selection import train_test_split
+pages = st.tabs(["🔮 Prédiction", "📊 Historique", "📁 Matchs du jour", "📈 Comparaison", "🔁 Réentraîner"])
 
-        X = df.drop(columns=['target'])
-        y = df['target']
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-
-        model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
-        model.fit(X_train, y_train)
-        joblib.dump(model, "tennis_model_custom.joblib")
-        st.success("✅ Nouveau modèle entraîné : tennis_model_custom.joblib")
-    else:
-        st.error("Fichier train_data.csv manquant.")
-
-def generate_train_example():
-    df = pd.DataFrame({
-        'rank_diff': np.random.randint(-100, 100, 500),
-        'ace_diff': np.random.randint(-20, 20, 500),
-        'df_diff': np.random.randint(-10, 10, 500),
-        'win_ratio_diff': np.random.uniform(-1, 1, 500),
-        'surface_ratio_diff': np.random.uniform(-1, 1, 500),
-        'surface': np.random.randint(0, 4, 500),
-        'tourney_level': np.random.randint(0, 5, 500),
-        'round': np.random.randint(0, 7, 500),
-        'target': np.random.randint(0, 2, 500)
-    })
-    df.to_csv("train_data.csv", index=False)
-    st.success("✅ Fichier exemple train_data.csv généré")
-
-# UI
-tabs = st.tabs(["🔮 Prédiction", "📊 Historique", "📁 Batch CSV", "📈 Comparaison", "🔁 Réentraînement"])
-
-with tabs[0]:
+with pages[0]:
     st.header("Entrée manuelle")
     player_1 = st.text_input("Joueur 1", "Joueur 1")
     player_2 = st.text_input("Joueur 2", "Joueur 2")
@@ -102,7 +68,7 @@ with tabs[0]:
         st.success(f"Gagnant prédit : {winner}")
         st.info(f"Probabilité de victoire : {proba:.2%}")
 
-with tabs[1]:
+with pages[1]:
     st.header("Historique")
     if os.path.exists("prediction_logs.csv"):
         df = pd.read_csv("prediction_logs.csv")
@@ -111,20 +77,31 @@ with tabs[1]:
     else:
         st.info("Aucune prédiction enregistrée.")
 
-with tabs[2]:
-    st.header("Batch CSV")
-    st.markdown("📝 Fichier CSV attendu avec colonnes : `rank_diff`, `ace_diff`, `df_diff`, `win_ratio_diff`, `surface_ratio_diff`, `surface`, `tourney_level`, `round`")
-    uploaded_file = st.file_uploader("Choisir un fichier CSV", type="csv")
+with pages[2]:
+    st.header("📁 Prédictions pour tous les matchs du jour")
+    st.markdown("""
+    Envoyez un fichier `.csv` contenant **tous les matchs du jour** avec les colonnes suivantes :
+    - `player_1`, `player_2`, `match_date`
+    - `rank_diff`, `ace_diff`, `df_diff`, `win_ratio_diff`, `surface_ratio_diff`
+    - `surface` (0=Hard, 1=Clay, 2=Grass, 3=Carpet), `tourney_level`, `round`
+    """)
+
+    uploaded_file = st.file_uploader("🔼 Déposer votre CSV des matchs du jour", type="csv")
+
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
         try:
             result_df = predict_batch(df)
-            st.success("✅ Prédictions générées")
-            st.dataframe(result_df[["player_1", "player_2", "match_date", "prediction_prob"]])
+            st.success("✅ Prédictions générées !")
+            show_table = st.radio("Afficher ou télécharger les résultats ?", ["📄 Afficher dans l'app", "📥 Télécharger un fichier tableur"])
+            if show_table == "📄 Afficher dans l'app":
+                st.dataframe(result_df[["player_1", "player_2", "match_date", "prediction_prob"]])
+            else:
+                st.download_button("📥 Télécharger les prédictions", result_df.to_csv(index=False).encode('utf-8'), "matchs_du_jour_pred.csv", "text/csv")
         except Exception as e:
-            st.error(str(e))
+            st.error(f"Erreur : {e}")
 
-with tabs[3]:
+with pages[3]:
     st.header("Comparaison entre joueurs")
     if os.path.exists("prediction_logs.csv"):
         df = pd.read_csv("prediction_logs.csv")
@@ -139,18 +116,38 @@ with tabs[3]:
         else:
             st.warning("Aucune confrontation trouvée.")
 
-with tabs[4]:
+with pages[4]:
     st.header("Réentraînement")
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Réentraîner modèle"):
-            retrain_model()
-        if st.button("🗑️ Supprimer train_data.csv"):
             if os.path.exists("train_data.csv"):
-                os.remove("train_data.csv")
-                st.success("train_data.csv supprimé ✅")
+                df = pd.read_csv("train_data.csv")
+                from xgboost import XGBClassifier
+                from sklearn.model_selection import train_test_split
+
+                X = df.drop(columns=['target'])
+                y = df['target']
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+                model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
+                model.fit(X_train, y_train)
+                joblib.dump(model, "tennis_match_predictor_xgb.joblib")
+                st.success("Modèle réentraîné ✅")
             else:
-                st.info("Aucun fichier train_data.csv trouvé.")
+                st.error("Fichier train_data.csv manquant.")
     with col2:
         if st.button("Créer fichier d'entraînement"):
-            generate_train_example()
+            df = pd.DataFrame({
+                'rank_diff': np.random.randint(-100, 100, 500),
+                'ace_diff': np.random.randint(-20, 20, 500),
+                'df_diff': np.random.randint(-10, 10, 500),
+                'win_ratio_diff': np.random.uniform(-1, 1, 500),
+                'surface_ratio_diff': np.random.uniform(-1, 1, 500),
+                'surface': np.random.randint(0, 4, 500),
+                'tourney_level': np.random.randint(0, 5, 500),
+                'round': np.random.randint(0, 7, 500),
+                'target': np.random.randint(0, 2, 500)
+            })
+            df.to_csv("train_data.csv", index=False)
+            st.success("Fichier exemple train_data.csv généré ✅")
